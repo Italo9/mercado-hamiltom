@@ -129,7 +129,7 @@ export function ChatWidget() {
     <>
       {/* Estado fechado: selo com o nome + botão flutuante */}
       {!open && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2">
+        <div className="fixed bottom-16 right-5 z-50 flex items-center gap-2">
           {showPill && (
             <button
               onClick={() => setOpen(true)}
