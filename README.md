@@ -1,12 +1,12 @@
-# 🛒 Depósito do Hamiltom (MVP)
+# 🛒 Mercado do Hamiltom (MVP)
 
-Site institucional com catálogo de produtos e assistente de IA para o Depósito do Hamiltom.
+Site institucional com catálogo de produtos e assistente de IA para o Mercado do Hamiltom.
 
 ## Stack
 
 - **Next.js 14** (App Router + Edge Runtime)
 - **TypeScript** + **Tailwind CSS**
-- **NVIDIA NIM** , agente "Hamiltinho" com fallback entre 4 modelos gratuitos
+- **NVIDIA NIM** , agente "Tom" com fallback entre 4 modelos gratuitos
 - **Docker** para deploy sem dor de cabeça
 
 ## Modelos NVIDIA NIM (fallback em ordem)
@@ -31,7 +31,7 @@ Se o primeiro modelo estiver indisponível, o próximo é tentado automaticament
 
 ```bash
 # 1. Clone e entre na pasta
-cd deposito-do-hamiltom
+cd mercado-do-hamiltom
 
 # 2. Instale as dependências
 npm install
@@ -59,7 +59,7 @@ docker compose up --build
 ```
 src/
   app/
-    api/chat/route.ts   ← endpoint do Hamiltinho (Edge)
+    api/chat/route.ts   ← endpoint do Tom (Edge)
     layout.tsx
     page.tsx
   components/
@@ -75,14 +75,14 @@ src/
       Footer.tsx
   lib/
     products.ts         ← catálogo de produtos (mock)
-    chat.ts             ← sugestões e system prompt do Hamiltinho
+    chat.ts             ← sugestões e system prompt do Tom
   types/
     index.ts
 ```
 
 ## Próximos passos sugeridos
 
-- [ ] Integrar API real do sistema de frente de caixa do Depósito do Hamiltom
+- [ ] Integrar API real do sistema de frente de caixa do Mercado do Hamiltom
 - [ ] Adicionar carrinho de compras
 - [ ] Página de admin para gestão de estoque
 - [ ] WhatsApp click-to-chat

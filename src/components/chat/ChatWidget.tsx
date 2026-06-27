@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { X, Send, Bot } from "lucide-react"
+import { X, Send, Bot, Phone } from "lucide-react"
 import { ChatMessage } from "@/types"
 import { SUGGESTIONS } from "@/lib/chat"
-import { assistant, market } from "@/lib/config"
+import { assistant, market, whatsappUrl } from "@/lib/config"
 import { TypingIndicator } from "./TypingIndicator"
 import { clsx } from "clsx"
 
@@ -14,7 +14,7 @@ const nextId = () => String(++msgId)
 const WELCOME: ChatMessage = {
   id: "welcome",
   role: "assistant",
-  content: `Oi! Eu sou o ${assistant.name} 🛒, ${assistant.role} da ${market.name}.\n\nPosso te ajudar a ver preços, conferir se um produto tem em estoque e dar sugestões de compra. O que você procura?`,
+  content: `Oi! Eu sou o ${assistant.name} 🛒, ${assistant.role} do ${market.name}.\n\nFunciono 24 horas: me diga um produto e eu confiro na hora o preço e se tem em estoque. Se estiver em falta, te indico uma alternativa que temos. O que você procura?`,
   timestamp: new Date(),
 }
 
@@ -33,6 +33,7 @@ export function ChatWidget() {
   const [loading, setLoading] = useState(false)
   const [unread, setUnread] = useState(0)
   const [showPill, setShowPill] = useState(true)
+  const wa = whatsappUrl()
 
   // Posição do botão flutuante (null = canto inferior direito padrão)
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
@@ -237,16 +238,30 @@ export function ChatWidget() {
             </div>
             <div>
               <p className="text-white font-body font-semibold text-sm leading-none">{assistant.name}</p>
-              <p className="text-gold-200 text-xs mt-0.5">{market.shortName} &middot; online</p>
+              <p className="text-gold-200 text-xs mt-0.5">{assistant.availability}</p>
             </div>
           </div>
-          <button
-            onClick={() => setOpen(false)}
-            aria-label="Fechar chat"
-            className="text-white/80 hover:text-white transition-colors p-2 -mr-1 rounded-lg hover:bg-white/10"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {wa && (
+              <a
+                href={wa}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Falar com um atendente no WhatsApp"
+                className="inline-flex items-center gap-1.5 text-white text-xs font-body font-semibold px-2.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+              >
+                <Phone className="w-4 h-4" aria-hidden="true" />
+                WhatsApp
+              </a>
+            )}
+            <button
+              onClick={() => setOpen(false)}
+              aria-label="Fechar chat"
+              className="text-white/80 hover:text-white transition-colors p-2 -mr-1 rounded-lg hover:bg-white/10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Mensagens */}
@@ -292,8 +307,8 @@ export function ChatWidget() {
           )}
         </div>
 
-        {/* Sugestões */}
-        {messages.length <= 2 && !loading && (
+        {/* Sugestões (permanecem disponíveis durante toda a conversa) */}
+        {!loading && (
           <div className="px-3 py-2 flex gap-1.5 overflow-x-auto border-t border-cream-200 flex-shrink-0 bg-white">
             {SUGGESTIONS.map((s) => (
               <button
