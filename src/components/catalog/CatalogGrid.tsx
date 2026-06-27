@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Search } from "lucide-react"
 import { Product } from "@/types"
 import { buildCategories } from "@/lib/products"
+import { assistant } from "@/lib/config"
 import { ProductCard } from "./ProductCard"
 import { clsx } from "clsx"
 
@@ -15,11 +16,41 @@ export function CatalogGrid({ products }: CatalogGridProps) {
   const [activeCategory, setActiveCategory] = useState("todos")
   const [query, setQuery] = useState("")
 
-  const categories = useMemo(() => buildCategories(products), [products])
+  const hasOffers = useMemo(() => products.some((p) => p.badge === "oferta"), [products])
+
+  // Insere uma aba "Ofertas" logo após "Todos" quando existem produtos em oferta.
+  const categories = useMemo(() => {
+    const base = buildCategories(products)
+    if (!hasOffers) {
+      return base
+    }
+    const [todos, ...rest] = base
+    return [todos, { id: "ofertas", label: "Ofertas", icon: "🏷️" }, ...rest]
+  }, [products, hasOffers])
+
+  // "Ofertas" no menu aponta para #ofertas: ao abrir ou trocar o hash, aplica o filtro.
+  useEffect(() => {
+    const applyHash = () => {
+      const hash = window.location.hash.replace("#", "")
+      if (hash === "ofertas" && hasOffers) {
+        setActiveCategory("ofertas")
+      } else if (hash === "catalogo") {
+        setActiveCategory("todos")
+      }
+    }
+    applyHash()
+    window.addEventListener("hashchange", applyHash)
+    return () => window.removeEventListener("hashchange", applyHash)
+  }, [hasOffers])
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
-      const matchCat = activeCategory === "todos" || p.category === activeCategory
+      const matchCat =
+        activeCategory === "todos"
+          ? true
+          : activeCategory === "ofertas"
+            ? p.badge === "oferta"
+            : p.category === activeCategory
       const matchQ =
         query.trim() === "" ||
         p.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -29,7 +60,8 @@ export function CatalogGrid({ products }: CatalogGridProps) {
   }, [products, activeCategory, query])
 
   return (
-    <section id="catalogo" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <section id="catalogo" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 scroll-mt-24">
+      <span id="ofertas" aria-hidden="true" className="block scroll-mt-28" />
       {/* Section header */}
       <div className="mb-8">
         <p className="text-brand-500 font-body font-semibold text-sm uppercase tracking-widest mb-1">
@@ -39,7 +71,7 @@ export function CatalogGrid({ products }: CatalogGridProps) {
           Produtos e preços
         </h2>
         <p className="font-body text-gray-500 text-sm mt-1">
-          Confira valores e disponibilidade. Dúvidas? Fale com o assistente no canto da tela.
+          Consulte os valores e a disponibilidade em tempo real. Dúvidas? Fale com o {assistant.name} no canto da tela, {assistant.availability.toLowerCase()}.
         </p>
       </div>
 

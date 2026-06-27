@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { market } from "@/lib/config";
+import { market, assistant } from "@/lib/config";
 
 export const metadata: Metadata = {
-  title: `${market.name} | Qualidade e preço justo`,
-  description: `${market.name}: ${market.description}. Consulte preços e disponibilidade dos produtos.`,
+  title: market.name,
+  description: `Site oficial do ${market.name}. Consulte os preços e a disponibilidade dos produtos e fale com o ${assistant.name}, ${assistant.availability.toLowerCase()}.`,
   icons: { icon: "/favicon.svg" },
 };
 

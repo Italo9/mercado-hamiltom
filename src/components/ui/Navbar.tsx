@@ -27,14 +27,14 @@ export function Navbar() {
       )}
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <a href="/" aria-label={`${market.name} — página inicial`}>
+        <a href="/" aria-label={`${market.name}, página inicial`}>
           <Logo tone="dark" size="sm" />
         </a>
 
         {/* Desktop nav */}
         <div className="hidden sm:flex items-center gap-7 font-body text-sm font-semibold text-sage-800">
           <a href="#catalogo" className="hover:text-brand-600 transition-colors">Produtos</a>
-          <a href="#catalogo" className="hover:text-brand-600 transition-colors">Ofertas</a>
+          <a href="#ofertas" className="hover:text-brand-600 transition-colors">Ofertas</a>
           {wa && (
             <a
               href={wa}
@@ -65,7 +65,7 @@ export function Navbar() {
           <a href="#catalogo" className="block py-3 text-sage-800 hover:text-brand-600" onClick={() => setMenuOpen(false)}>
             Produtos
           </a>
-          <a href="#catalogo" className="block py-3 text-sage-800 hover:text-brand-600" onClick={() => setMenuOpen(false)}>
+          <a href="#ofertas" className="block py-3 text-sage-800 hover:text-brand-600" onClick={() => setMenuOpen(false)}>
             Ofertas
           </a>
           {wa && (
@@ -77,7 +77,7 @@ export function Navbar() {
               onClick={() => setMenuOpen(false)}
             >
               <MessageCircle className="w-5 h-5" aria-hidden="true" />
-              WhatsApp{market.phoneDisplay ? ` — ${market.phoneDisplay}` : ""}
+              WhatsApp{market.phoneDisplay ? ` ${market.phoneDisplay}` : ""}
             </a>
           )}
         </div>

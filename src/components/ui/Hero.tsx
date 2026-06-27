@@ -1,5 +1,5 @@
 import { ShoppingCart, MapPin, Clock, MessageCircle, CreditCard } from "lucide-react"
-import { market, whatsappUrl } from "@/lib/config"
+import { market, assistant, whatsappUrl } from "@/lib/config"
 
 export function Hero() {
   const wa = whatsappUrl()
@@ -39,7 +39,7 @@ export function Hero() {
 
           {/* Subline */}
           <p className="font-body text-cream-100/90 text-base sm:text-xl leading-relaxed max-w-xl mb-8">
-            Na {market.name} você encontra {market.description}. Veja preços e disponibilidade pertinho de você.
+            Aqui você consulta os preços e a disponibilidade dos produtos do {market.name} e tira dúvidas com o {assistant.name}, {assistant.availability.toLowerCase()}.
           </p>
 
           {/* CTAs */}
@@ -86,6 +86,10 @@ export function Hero() {
 
           {/* Info strip */}
           <div className="mt-9 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-6 text-sm font-body text-cream-100/80">
+            <span className="flex items-center gap-1.5">
+              <MessageCircle className="w-4 h-4 text-gold-300" aria-hidden="true" />
+              {assistant.availability} com o {assistant.name}
+            </span>
             <span className="flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-gold-300" aria-hidden="true" />
               {market.hours}
