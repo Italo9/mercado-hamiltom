@@ -1,15 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Menu, X, MessageCircle } from "lucide-react"
+import { Menu, X } from "lucide-react"
 import { clsx } from "clsx"
 import { Logo } from "./Logo"
-import { market, whatsappUrl } from "@/lib/config"
+import { market, assistant } from "@/lib/config"
+import { openTomChat } from "@/components/chat/OpenChatButton"
+import { WhatsAppGlyph } from "@/components/chat/WhatsAppGlyph"
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const wa = whatsappUrl()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12)
@@ -35,17 +36,14 @@ export function Navbar() {
         <div className="hidden sm:flex items-center gap-7 font-body text-sm font-semibold text-sage-800">
           <a href="#catalogo" className="hover:text-brand-600 transition-colors">Produtos</a>
           <a href="#ofertas" className="hover:text-brand-600 transition-colors">Ofertas</a>
-          {wa && (
-            <a
-              href={wa}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-gold-400 text-sage-900 px-5 py-2.5 rounded-full font-bold shadow-sm hover:bg-gold-300 transition-colors"
-            >
-              <MessageCircle className="w-4 h-4" aria-hidden="true" />
-              WhatsApp
-            </a>
-          )}
+          <button
+            type="button"
+            onClick={openTomChat}
+            className="inline-flex items-center gap-2 bg-brand-600 text-white px-5 py-2.5 rounded-full font-bold shadow-sm ring-1 ring-gold-400/60 hover:bg-brand-700 transition-colors"
+          >
+            <WhatsAppGlyph className="w-4 h-4 text-gold-300" />
+            Falar com o {assistant.name}
+          </button>
         </div>
 
         {/* Mobile toggle */}
@@ -68,18 +66,17 @@ export function Navbar() {
           <a href="#ofertas" className="block py-3 text-sage-800 hover:text-brand-600" onClick={() => setMenuOpen(false)}>
             Ofertas
           </a>
-          {wa && (
-            <a
-              href={wa}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 mt-2 bg-gold-400 text-sage-900 py-3 rounded-full font-bold"
-              onClick={() => setMenuOpen(false)}
-            >
-              <MessageCircle className="w-5 h-5" aria-hidden="true" />
-              WhatsApp{market.phoneDisplay ? ` ${market.phoneDisplay}` : ""}
-            </a>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false)
+              openTomChat()
+            }}
+            className="w-full flex items-center justify-center gap-2 mt-2 bg-brand-600 text-white py-3 rounded-full font-bold ring-1 ring-gold-400/60"
+          >
+            <WhatsAppGlyph className="w-5 h-5 text-gold-300" />
+            Falar com o {assistant.name}
+          </button>
         </div>
       )}
     </header>

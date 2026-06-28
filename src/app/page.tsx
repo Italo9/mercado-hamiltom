@@ -4,11 +4,12 @@ import { CatalogGrid } from "@/components/catalog/CatalogGrid"
 import { ChatWidget } from "@/components/chat/ChatWidget"
 import { Footer } from "@/components/ui/Footer"
 import { getProducts } from "@/lib/products"
-import { assistant, market, whatsappUrl } from "@/lib/config"
+import { assistant } from "@/lib/config"
+import { OpenChatButton } from "@/components/chat/OpenChatButton"
+import { WhatsAppGlyph } from "@/components/chat/WhatsAppGlyph"
 
 export default async function Home() {
   const products = await getProducts()
-  const wa = whatsappUrl()
 
   return (
     <main className="min-h-screen">
@@ -19,17 +20,10 @@ export default async function Home() {
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" aria-hidden="true" />
             {assistant.availability} com o {assistant.name}, {assistant.role}
           </span>
-          {wa && (
-            <a
-              href={wa}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-gold-300 hover:text-gold-200 font-semibold transition-colors"
-            >
-              Falar no WhatsApp
-              {market.phoneDisplay ? <span className="hidden sm:inline text-cream-200/70 font-normal">{market.phoneDisplay}</span> : null}
-            </a>
-          )}
+          <OpenChatButton className="inline-flex items-center gap-1.5 text-gold-300 hover:text-gold-200 font-semibold transition-colors">
+            <WhatsAppGlyph className="w-3.5 h-3.5" />
+            Falar com o {assistant.name}
+          </OpenChatButton>
         </div>
       </div>
       <Navbar />
