@@ -1,9 +1,8 @@
-import { MapPin, Clock, MessageCircle, Phone } from "lucide-react"
+import { MapPin, Clock } from "lucide-react"
 import { Logo } from "./Logo"
-import { market, assistant, whatsappUrl } from "@/lib/config"
+import { market, assistant } from "@/lib/config"
 
 export function Footer() {
-  const wa = whatsappUrl()
 
   return (
     <footer className="bg-sage-950 text-cream-200/80 py-12 mt-16">
@@ -25,18 +24,6 @@ export function Footer() {
                 <MapPin className="w-4 h-4 text-gold-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
                 {market.address}{market.cep ? ` · ${market.cep}` : ""}
               </li>
-              {(wa || market.phoneDisplay) && (
-                <li className="flex items-center gap-2">
-                  {wa ? <MessageCircle className="w-4 h-4 text-gold-400 flex-shrink-0" aria-hidden="true" /> : <Phone className="w-4 h-4 text-gold-400 flex-shrink-0" aria-hidden="true" />}
-                  {wa ? (
-                    <a href={wa} target="_blank" rel="noopener noreferrer" className="hover:text-gold-300 transition-colors">
-                      {market.phoneDisplay || "WhatsApp"}
-                    </a>
-                  ) : (
-                    <span>{market.phoneDisplay}</span>
-                  )}
-                </li>
-              )}
               <li className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-gold-400 flex-shrink-0" aria-hidden="true" />
                 {market.hours}

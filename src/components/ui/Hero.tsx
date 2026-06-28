@@ -1,8 +1,7 @@
 import { ShoppingCart, MapPin, Clock, MessageCircle, CreditCard } from "lucide-react"
-import { market, assistant, whatsappUrl } from "@/lib/config"
+import { market, assistant } from "@/lib/config"
 
 export function Hero() {
-  const wa = whatsappUrl()
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-sage-900 text-white">
@@ -52,18 +51,7 @@ export function Hero() {
               <ShoppingCart className="w-5 h-5" aria-hidden="true" />
               Ver produtos e preços
             </a>
-            {wa && (
-              <a
-                href={wa}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 border-2 border-white/40 text-white font-body font-semibold
-                           px-6 py-3.5 rounded-full hover:bg-white/10 transition-colors"
-              >
-                <MessageCircle className="w-5 h-5" aria-hidden="true" />
-                Falar no WhatsApp
-              </a>
-            )}
+
           </div>
 
           {/* Faixa de meios de pagamento */}
