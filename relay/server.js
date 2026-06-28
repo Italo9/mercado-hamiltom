@@ -1,14 +1,15 @@
-// Relay WhatsApp — servidor standalone que mantém a conexão Baileys viva
-// e gerencia as sessões de atendimento humano. Sobe em host persistente
+// Relay WhatsApp, servidor standalone que mantem a conexao Baileys viva
+// e gerencia as sessoes de atendimento humano. Sobe em host persistente
 // (Railway, Fly.io, Docker) enquanto o Next.js roda na Vercel em serverless.
 //
 // Endpoints (todos exigem header Authorization: Bearer <RELAY_AUTH_TOKEN>):
-//   GET  /qr        → QR code atual ou null
-//   GET  /status    → status da conexão WhatsApp
-//   POST /start     → inicia sessão de atendimento e notifica o atendente
-//   POST /message   → encaminha mensagem do cliente ao atendente
-//   GET  /poll      → drena mensagens do atendente para a sessão
-//   POST /end       → encerra sessão
+//   GET  /qr        QR code atual ou null
+//   GET  /status    status da conexao WhatsApp
+//   GET  /debug     estado das sessoes (diagnostico)
+//   POST /start     inicia sessao de atendimento e notifica o atendente
+//   POST /message   encaminha mensagem do cliente ao atendente
+//   GET  /poll      drena mensagens do atendente para a sessao
+//   POST /end       encerra sessao
 
 const express = require("express")
 
@@ -52,6 +53,21 @@ function getActiveSession() {
   return s && s.active ? s : null
 }
 
+// Entrega a mensagem do atendente a TODAS as sessoes ativas. Como o MVP tem um
+// unico atendente, isto garante que a sessao que o widget esta consultando
+// receba a resposta, mesmo que outro /start (por exemplo, um teste pelo console)
+// tenha mudado o activeSessionId. Retorna quantas sessoes receberam.
+function enqueueToAllActive(text) {
+  let count = 0
+  for (const s of Array.from(sessions.values())) {
+    if (s.active) {
+      s.queue.push({ id: nextId(), text, at: Date.now() })
+      count += 1
+    }
+  }
+  return count
+}
+
 function endSession(id, reason) {
   const s = sessions.get(id)
   if (!s) return
@@ -72,7 +88,7 @@ function drainSession(id) {
 
 function sweepTimeouts() {
   const now = Date.now()
-  for (const s of sessions.values()) {
+  for (const s of Array.from(sessions.values())) {
     if (s.active && now - s.lastClientActivity >= HUMAN_TIMEOUT_MS) {
       endSession(s.id, "timeout")
     }
@@ -113,7 +129,7 @@ function extractText(message) {
 async function connectWhatsApp() {
   connectionState = "connecting"
 
-  // Garante que o diretório de auth existe
+  // Garante que o diretorio de auth existe
   try { require("fs").mkdirSync(AUTH_DIR, { recursive: true }) } catch (_) {}
 
   const { makeWASocket, useMultiFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys")
@@ -126,7 +142,7 @@ async function connectWhatsApp() {
     auth: state,
     logger,
     printQRInTerminal: false,
-    browser: ["Mercado Diniz", "Chrome", "1.0.0"],
+    browser: ["Mercado do Hamiltom", "Chrome", "1.0.0"],
   })
 
   sock.ev.on("creds.update", saveCreds)
@@ -137,7 +153,7 @@ async function connectWhatsApp() {
       latestQR = qr
       const qrcode = require("qrcode-terminal")
       qrcode.generate(qr, { small: true })
-      console.log("[WHATSAPP] QR code gerado — escaneie com o WhatsApp do atendente")
+      console.log("[WHATSAPP] QR code gerado, escaneie com o WhatsApp do atendente")
     }
     if (connection === "open") {
       connectionState = "open"
@@ -184,7 +200,7 @@ async function connectWhatsApp() {
       const from = (key.remoteJid ?? "").toString()
       const isMe = !!key.fromMe
 
-      // Só aceita mensagens da própria conta (fromMe) ou do número do atendente.
+      // So aceita mensagens da propria conta (fromMe) ou do numero do atendente.
       // Em multi-device, respostas do celular chegam como fromMe:true via LID JID.
       if (!isMe && !jidMatches(from, ATTENDANT_NUMBER)) continue
 
@@ -196,11 +212,14 @@ async function connectWhatsApp() {
 
       console.log("[WHATSAPP] texto do atendente:", text.substring(0, 80))
 
-      const session = getActiveSession()
-      if (!session) { console.log("[WHATSAPP] sem sessao ativa"); continue }
-
-      session.queue.push({ id: nextId(), text: text.trim(), at: Date.now() })
-      console.log("[WHATSAPP] resposta do atendente:", text.trim().substring(0, 80))
+      // Entrega a TODAS as sessoes ativas (corrige o caso de a resposta cair na
+      // sessao errada quando o activeSessionId mudou).
+      const delivered = enqueueToAllActive(text.trim())
+      if (delivered === 0) {
+        console.log("[WHATSAPP] sem sessao ativa para entregar a resposta")
+      } else {
+        console.log(`[WHATSAPP] resposta entregue a ${delivered} sessao(oes)`)
+      }
     }
   })
 }
@@ -221,34 +240,23 @@ app.get("/qr", auth, (_req, res) => {
   res.json({ enabled: WHATSAPP_ENABLED, connection: connectionState, qr: latestQR })
 })
 
-app.get("/qr-page", (_req, res) => {
-  if (!WHATSAPP_ENABLED) {
-    return res.send("<h2>WHATSAPP_ENABLED=false</h2>")
-  }
-  if (connectionState === "open") {
-    return res.send("<html><body style=\"font-family:sans-serif;text-align:center;margin-top:80px;background:#f0f0f0\"><h2 style=\"color:#075e54\">WhatsApp conectado!</h2></body></html>")
-  }
-  const qrData = latestQR || ""
-  const refresh = qrData ? 5 : 3
-  const heading = qrData ? "Escaneie com o WhatsApp do atendente" : "Aguardando QR..."
-  const js = qrData
-    ? 'new QRCode(document.getElementById("qr"),{text:' + JSON.stringify(qrData) + ',width:280,height:280})'
-    : ""
-
-  res.send("<!DOCTYPE html>\n<html lang=\"pt\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>QR — WhatsApp</title>\n" +
-    '<meta http-equiv="refresh" content="' + refresh + '">\n' +
-    '<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"><\/script>\n' +
-    "<style>body{font-family:sans-serif;text-align:center;margin-top:40px;background:#f0f0f0}" +
-    "#qr{margin:20px auto;display:inline-block;padding:16px;background:#fff;border-radius:12px;border:3px solid #075e54}" +
-    "h2{color:#075e54}p{color:#666;font-size:14px}<\/style>\n<\/head>\n<body>\n" +
-    "<h2>" + heading + "<\/h2>\n" +
-    (qrData ? "<p>Aparelhos conectados → Conectar um aparelho<\/p>\n<div id=\"qr\"><\/div>\n<p>O QR atualiza a cada 5s<\/p>\n" : "") +
-    "<script>" + js + "<\/script>\n" +
-    "<\/body>\n<\/html>")
-})
-
 app.get("/status", auth, (_req, res) => {
   res.json({ enabled: WHATSAPP_ENABLED, connection: connectionState })
+})
+
+// Diagnostico: lista as sessoes, qual esta ativa e quantas mensagens estao na fila.
+app.get("/debug", auth, (_req, res) => {
+  res.json({
+    activeSessionId,
+    connection: connectionState,
+    sessions: Array.from(sessions.values()).map((s) => ({
+      id: s.id,
+      name: s.name,
+      active: s.active,
+      queued: s.queue.length,
+      ended: s.ended,
+    })),
+  })
 })
 
 app.post("/start", auth, async (req, res) => {
@@ -257,6 +265,7 @@ app.post("/start", auth, async (req, res) => {
     return res.status(400).json({ ok: false, error: "dados incompletos" })
   }
   startSession(sessionId, name.trim())
+  console.log("[RELAY] nova sessao:", sessionId, "nome:", name.trim())
 
   if (!WHATSAPP_ENABLED || connectionState !== "open") {
     return res.json({ ok: false, enabled: false })
@@ -285,6 +294,8 @@ app.post("/message", auth, async (req, res) => {
   }
 
   session.lastClientActivity = Date.now()
+  // Reafirma esta como a sessao ativa, caso outro /start tenha mudado o ponteiro.
+  activeSessionId = sessionId
 
   if (!WHATSAPP_ENABLED || connectionState !== "open") {
     return res.json({ ok: false, enabled: false })
@@ -326,6 +337,6 @@ app.listen(PORT, () => {
       console.error("[RELAY] falha ao iniciar WhatsApp:", err)
     })
   } else {
-    console.log("[RELAY] WHATSAPP_ENABLED=false — WhatsApp offline")
+    console.log("[RELAY] WHATSAPP_ENABLED=false, WhatsApp offline")
   }
 })
