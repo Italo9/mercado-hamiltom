@@ -371,6 +371,8 @@ export function ChatWidget() {
         ? "Escreva para o atendente…"
         : "Pergunte sobre preços e produtos…"
 
+  const humanMode = mode === "human"
+
   return (
     <>
       {/* Botão flutuante (arrastável) + balão sempre visível com o nome */}
@@ -421,7 +423,12 @@ export function ChatWidget() {
         )}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-brand-600 to-sage-800 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div
+          className={clsx(
+            "px-4 py-3 flex items-center justify-between flex-shrink-0",
+            humanMode ? "bg-[#075e54]" : "bg-gradient-to-r from-brand-600 to-sage-800",
+          )}
+        >
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full bg-gold-400 flex items-center justify-center ring-1 ring-gold-300/50">
               <WhatsAppGlyph className="w-5 h-5 text-brand-600" />
@@ -429,7 +436,7 @@ export function ChatWidget() {
             <div>
               <p className="text-white font-body font-semibold text-sm leading-none">{assistant.name}</p>
               <p className="text-gold-200 text-xs mt-0.5">
-                {mode === "human" ? "Atendente humano" : assistant.availability}
+                {humanMode ? "Atendente humano" : assistant.availability}
               </p>
             </div>
           </div>
@@ -445,7 +452,10 @@ export function ChatWidget() {
         {/* Mensagens */}
         <div
           ref={scrollRef}
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3 bg-cream-50"
+          className={clsx(
+            "flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3",
+            humanMode ? "bg-[#ece5dd]" : "bg-cream-50",
+          )}
         >
           {messages.map((msg) => (
             <div
@@ -460,9 +470,11 @@ export function ChatWidget() {
                 className={clsx(
                   "relative max-w-[80%] px-4 py-2.5 rounded-2xl text-sm font-body leading-relaxed whitespace-pre-wrap",
                   msg.role === "user"
-                    ? "bg-brand-500 text-white rounded-br-none"
+                    ? humanMode
+                      ? "bg-[#d9fdd3] text-gray-900 rounded-br-none"
+                      : "bg-brand-500 text-white rounded-br-none"
                     : msg.human
-                      ? "bg-emerald-50 text-gray-800 border border-emerald-200 rounded-bl-none shadow-sm"
+                      ? "bg-white text-gray-800 border border-gray-200 rounded-bl-none shadow-sm"
                       : "bg-white text-gray-800 border border-brand-100 rounded-bl-none shadow-sm",
                 )}
               >
@@ -475,7 +487,11 @@ export function ChatWidget() {
                 <span
                   className={clsx(
                     "block text-right mt-1 text-[10px] leading-none",
-                    msg.role === "user" ? "text-brand-100" : "text-gray-400",
+                    msg.role === "user"
+                      ? humanMode
+                        ? "text-emerald-700/70"
+                        : "text-brand-100"
+                      : "text-gray-400",
                   )}
                 >
                   {msg.timestamp.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
@@ -493,7 +509,7 @@ export function ChatWidget() {
         </div>
 
         {/* Atalhos: encerrar (no atendimento humano) ou sugestões (sempre visíveis) */}
-        {mode === "human" ? (
+        {humanMode ? (
           <div className="px-3 py-2 border-t border-cream-200 flex-shrink-0 bg-white">
             <button
               onClick={endHuman}
