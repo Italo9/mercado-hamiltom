@@ -3,7 +3,9 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
-RUN npm ci --prefer-offline
+# npm install (e nao npm ci) porque as libs do atendimento humano sao
+# optionalDependencies e podem nao estar no package-lock ainda.
+RUN npm install --no-audit --no-fund
 RUN npm install sharp
 
 # Stage 2 , builder

@@ -21,6 +21,8 @@ export interface ChatMessage {
   role: "user" | "assistant"
   content: string
   timestamp: Date
+  // true quando a mensagem veio de um atendente humano (via WhatsApp)
+  human?: boolean
 }
 
 export interface Suggestion {

@@ -7,6 +7,11 @@ const nextConfig = {
     // cadastrar cada host em remotePatterns e aceita qualquer URL https.
     unoptimized: true,
   },
+  experimental: {
+    // Libs do atendimento humano (Baileys) só rodam no host persistente (Docker).
+    // Marcadas como externas para nunca serem empacotadas no build.
+    serverComponentsExternalPackages: ["@whiskeysockets/baileys", "pino", "qrcode-terminal"],
+  },
 }
 
 module.exports = nextConfig
