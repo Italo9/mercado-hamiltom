@@ -171,6 +171,32 @@ app.get("/qr", auth, (_req, res) => {
   res.json({ enabled: WHATSAPP_ENABLED, connection: connectionState, qr: latestQR })
 })
 
+app.get("/qr-page", (_req, res) => {
+  if (!WHATSAPP_ENABLED) {
+    return res.send("<h2>WHATSAPP_ENABLED=false</h2>")
+  }
+  if (connectionState === "open") {
+    return res.send("<html><body style=\"font-family:sans-serif;text-align:center;margin-top:80px;background:#f0f0f0\"><h2 style=\"color:#075e54\">WhatsApp conectado!</h2></body></html>")
+  }
+  const qrData = latestQR || ""
+  const refresh = qrData ? 5 : 3
+  const heading = qrData ? "Escaneie com o WhatsApp do atendente" : "Aguardando QR..."
+  const js = qrData
+    ? 'new QRCode(document.getElementById("qr"),{text:' + JSON.stringify(qrData) + ',width:280,height:280})'
+    : ""
+
+  res.send("<!DOCTYPE html>\n<html lang=\"pt\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>QR — WhatsApp</title>\n" +
+    '<meta http-equiv="refresh" content="' + refresh + '">\n' +
+    '<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"><\/script>\n' +
+    "<style>body{font-family:sans-serif;text-align:center;margin-top:40px;background:#f0f0f0}" +
+    "#qr{margin:20px auto;display:inline-block;padding:16px;background:#fff;border-radius:12px;border:3px solid #075e54}" +
+    "h2{color:#075e54}p{color:#666;font-size:14px}<\/style>\n<\/head>\n<body>\n" +
+    "<h2>" + heading + "<\/h2>\n" +
+    (qrData ? "<p>Aparelhos conectados → Conectar um aparelho<\/p>\n<div id=\"qr\"><\/div>\n<p>O QR atualiza a cada 5s<\/p>\n" : "") +
+    "<script>" + js + "<\/script>\n" +
+    "<\/body>\n<\/html>")
+})
+
 app.get("/status", auth, (_req, res) => {
   res.json({ enabled: WHATSAPP_ENABLED, connection: connectionState })
 })
