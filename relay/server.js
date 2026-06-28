@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 4000
 const AUTH_TOKEN = process.env.RELAY_AUTH_TOKEN || "change-me"
 const WHATSAPP_ENABLED = (process.env.WHATSAPP_ENABLED || "false").toLowerCase() === "true"
 const ATTENDANT_NUMBER = (process.env.WHATSAPP_ATTENDANT_NUMBER || "5574999690535").replace(/\D/g, "")
-const AUTH_DIR = process.env.WHATSAPP_AUTH_DIR || "./.whatsapp-auth"
+const AUTH_DIR = (process.env.WHATSAPP_AUTH_DIR || "./.whatsapp-auth") + "/state"
 const HUMAN_TIMEOUT_MS = Number(process.env.HUMAN_TIMEOUT_MS || 180000)
 
 // --------------- Auth middleware ---------------
@@ -86,6 +86,22 @@ let sock = null
 let latestQR = null
 let connectionState = "disconnected"
 
+function jidMatches(jid, number) {
+  const clean = (s) => s.replace(/\D/g, "")
+  const a = clean(jid)
+  const b = clean(number)
+  if (a === b) return true
+  // Celular brasileiro pode ter 9 extra: 55XX9XXXX-XXXX vs 55XXXX-XXXX
+  if (b.length >= 12 && a.length >= 11) {
+    const shorter = a.length < b.length ? a : b
+    const longer = a.length < b.length ? b : a
+    if (longer.length === shorter.length + 1 && longer.startsWith(shorter.slice(0, 4))) {
+      return longer.slice(0, 4) + longer.slice(5) === shorter
+    }
+  }
+  return false
+}
+
 function extractText(message) {
   const conversation = message.conversation
   if (typeof conversation === "string") return conversation
@@ -96,6 +112,10 @@ function extractText(message) {
 
 async function connectWhatsApp() {
   connectionState = "connecting"
+
+  // Garante que o diretório de auth existe
+  try { require("fs").mkdirSync(AUTH_DIR, { recursive: true }) } catch (_) {}
+
   const { makeWASocket, useMultiFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys")
   const pino = require("pino")
   const logger = pino({ level: "silent" })
@@ -122,17 +142,35 @@ async function connectWhatsApp() {
     if (connection === "open") {
       connectionState = "open"
       latestQR = null
+      connectWhatsApp._attempt = 0
       console.log("[WHATSAPP] Conectado!")
     }
     if (connection === "close") {
       connectionState = "close"
-      const statusCode = lastDisconnect?.error?.output?.statusCode
-      const loggedOut = DisconnectReason?.loggedOut ?? 401
-      console.log("[WHATSAPP] Desconectado, statusCode:", statusCode)
-      if (statusCode !== loggedOut) {
-        sock = null
-        setTimeout(connectWhatsApp, 5000)
+      const err = lastDisconnect?.error
+      const statusCode = err?.output?.statusCode
+      console.log("[WHATSAPP] Desconectado, statusCode:", statusCode, "message:", err?.message || "")
+
+      // 401 = logged out / session expired: limpa auth pra gerar QR novo
+      if (statusCode === 401) {
+        try {
+          const fs = require("fs")
+          const path = require("path")
+          if (fs.existsSync(AUTH_DIR)) {
+            for (const f of fs.readdirSync(AUTH_DIR)) {
+              try { fs.unlinkSync(path.join(AUTH_DIR, f)) } catch (_) {}
+            }
+            console.log("[WHATSAPP] auth limpo, novo QR sera gerado")
+          }
+        } catch (_) {}
       }
+
+      // Sempre reconecta
+      sock = null
+      const attempt = (connectWhatsApp._attempt = (connectWhatsApp._attempt || 0) + 1)
+      const delay = Math.min(5000 * Math.pow(2, attempt - 1), 120000)
+      console.log("[WHATSAPP] reconectando em", delay / 1000, "s (tentativa", attempt, ")")
+      setTimeout(connectWhatsApp, delay)
     }
   })
 
@@ -141,16 +179,28 @@ async function connectWhatsApp() {
     for (const m of list) {
       const key = m.key
       const message = m.message
-      if (!message || !key || key.fromMe) continue
-      const from = key.remoteJid ?? ""
-      if (!from.startsWith(ATTENDANT_NUMBER)) continue
+      if (!message || !key) continue
+
+      const from = (key.remoteJid ?? "").toString()
+      const isMe = !!key.fromMe
+
+      // Só aceita mensagens da própria conta (fromMe) ou do número do atendente.
+      // Em multi-device, respostas do celular chegam como fromMe:true via LID JID.
+      if (!isMe && !jidMatches(from, ATTENDANT_NUMBER)) continue
+
       const text = extractText(message)
       if (!text.trim()) continue
 
+      // Ignora eco das mensagens enviadas pelo relay (prefixos conhecidos)
+      if (isMe && (text.startsWith("Cliente:") || text.startsWith("*NOVO"))) continue
+
+      console.log("[WHATSAPP] texto do atendente:", text.substring(0, 80))
+
       const session = getActiveSession()
-      if (session) {
-        session.queue.push({ id: nextId(), text: text.trim(), at: Date.now() })
-      }
+      if (!session) { console.log("[WHATSAPP] sem sessao ativa"); continue }
+
+      session.queue.push({ id: nextId(), text: text.trim(), at: Date.now() })
+      console.log("[WHATSAPP] resposta do atendente:", text.trim().substring(0, 80))
     }
   })
 }
