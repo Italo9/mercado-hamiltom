@@ -62,6 +62,7 @@ function enqueueToAllActive(text) {
   for (const s of Array.from(sessions.values())) {
     if (s.active) {
       s.queue.push({ id: nextId(), text, at: Date.now() })
+      console.log("[RELAY] enfileirado na sessao", s.id.substring(0, 8), "queue size:", s.queue.length)
       count += 1
     }
   }
@@ -76,13 +77,25 @@ function endSession(id, reason) {
   if (activeSessionId === id) activeSessionId = null
 }
 
+// Timestamp da ultima consulta de poll por sessao (evita drenar a fila)
+const lastPolled = new Map()
+
 function drainSession(id) {
   const s = sessions.get(id)
   if (!s) return { active: false, messages: [], ended: null }
-  const messages = s.queue
-  s.queue = []
+
+  const since = lastPolled.get(id) || 0
+  const messages = s.queue.filter((m) => m.at > since)
+  lastPolled.set(id, Date.now())
+
+  // Limpa mensagens ja entregues (mais antigas que o since atual)
+  s.queue = s.queue.filter((m) => m.at > since)
+
   const ended = s.ended
-  if (ended) sessions.delete(id)
+  if (ended) {
+    sessions.delete(id)
+    lastPolled.delete(id)
+  }
   return { active: s.active, messages, ended }
 }
 
@@ -207,8 +220,8 @@ async function connectWhatsApp() {
       const text = extractText(message)
       if (!text.trim()) continue
 
-      // Eco das mensagens enviadas pelo relay: contem \u200e (LTR marker)
-      if (isMe && /\u200e/.test(text)) continue
+      // Ignora eco das mensagens enviadas pelo relay (prefixos conhecidos)
+      if (isMe && (text.startsWith("Cliente:") || text.startsWith("*NOVO"))) continue
 
       console.log("[WHATSAPP] texto do atendente:", text.substring(0, 80))
 
@@ -229,9 +242,7 @@ async function sendToAttendant(text) {
     throw new Error("WhatsApp offline")
   }
   const jid = `${ATTENDANT_NUMBER}@s.whatsapp.net`
-  // \u200e (LEFT-TO-RIGHT MARK): marcador invisivel que permite filtrar o eco
-  // quando o Baileys devolve a mensagem via messages.upsert (fromMe: true).
-  await sock.sendMessage(jid, { text: `\u200e${text}` })
+  await sock.sendMessage(jid, { text })
 }
 
 // --------------- Express app ---------------
@@ -319,6 +330,9 @@ app.get("/poll", auth, (req, res) => {
   }
   sweepTimeouts()
   const result = drainSession(sessionId)
+  if (result.messages.length > 0) {
+    console.log("[RELAY] poll", sessionId.substring(0, 8), "entregou", result.messages.length, "msgs")
+  }
   return res.json(result)
 })
 
