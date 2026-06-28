@@ -8,16 +8,6 @@ services:
     environment:
       - NVIDIA_API_KEY=${NVIDIA_API_KEY}
       - NODE_ENV=production
-      # Atendimento humano via WhatsApp (Baileys). Defina WHATSAPP_ENABLED=true
-      # no seu .env para ativar. O numero do atendente ja tem um padrao de teste.
-      - WHATSAPP_ENABLED=${WHATSAPP_ENABLED:-false}
-      - WHATSAPP_ATTENDANT_NUMBER=${WHATSAPP_ATTENDANT_NUMBER:-5574999690535}
-      - WHATSAPP_AUTH_DIR=/app/.whatsapp-auth
-      - HUMAN_TIMEOUT_MS=${HUMAN_TIMEOUT_MS:-180000}
-    volumes:
-      # Mantem a sessao do WhatsApp entre reinicios (nao precisa reescanear o QR).
-      - whatsapp_auth:/app/.whatsapp-auth
+      - RELAY_URL=${RELAY_URL}
+      - RELAY_AUTH_TOKEN=${RELAY_AUTH_TOKEN}
     restart: unless-stopped
-
-volumes:
-  whatsapp_auth:

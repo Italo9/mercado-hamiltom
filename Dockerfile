@@ -27,14 +27,6 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# node_modules completo do estagio deps: o Baileys e carregado por import
-# dinamico (nao e tracado pelo standalone), entao precisa estar presente aqui
-# para o atendimento humano funcionar em runtime.
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
-
-# Pasta da sessao do WhatsApp (Baileys), gravavel pelo usuario nextjs e
-# preparada para receber um volume persistente.
-RUN mkdir -p /app/.whatsapp-auth && chown -R nextjs:nodejs /app/.whatsapp-auth
 
 USER nextjs
 EXPOSE 3000

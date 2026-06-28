@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server"
-import { ensureWhatsapp, whatsappStatus, whatsappEnabled } from "@/lib/whatsapp"
+import { relayGet } from "@/lib/relay"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-// Dispara a conexão (gera o QR na primeira vez) e devolve o status.
-// O QR também é impresso no log do container (docker logs).
 export async function GET() {
-  if (!whatsappEnabled()) {
+  const result = await relayGet("/qr")
+  if (!result) {
     return NextResponse.json({ enabled: false, connection: "disconnected", qr: null })
   }
-  await ensureWhatsapp()
-  return NextResponse.json(whatsappStatus())
+  return NextResponse.json(result)
 }

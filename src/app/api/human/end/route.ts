@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { endSession } from "@/lib/humanSessions"
+import { relayPost } from "@/lib/relay"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function POST(req: NextRequest) {
-  const { sessionId } = (await req.json()) as { sessionId?: string }
-  if (!sessionId) {
-    return NextResponse.json({ ok: false, error: "dados incompletos" }, { status: 400 })
+  const body = await req.json()
+  const result = await relayPost("/end", body)
+  if (!result) {
+    return NextResponse.json({ ok: false })
   }
-  endSession(sessionId, "manual")
-  return NextResponse.json({ ok: true })
+  return NextResponse.json(result)
 }
