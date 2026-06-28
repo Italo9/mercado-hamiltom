@@ -336,6 +336,7 @@ app.post("/message", auth, async (req, res) => {
 
 app.get("/poll", auth, (req, res) => {
   const sessionId = req.query.sessionId
+  console.log("[RELAY] /poll recebido", sessionId ? sessionId.substring(0,8) : "sem id", new Date().toISOString())
   if (!sessionId) {
     return res.json({ active: false, messages: [], ended: null })
   }

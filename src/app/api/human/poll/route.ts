@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const url = `${relayUrl}/poll?sessionId=${encodeURIComponent(sessionId ?? "")}`
-    console.log("[POLL-PROXY] calling", url.substring(0, 70))
+    const url = `${relayUrl}/poll?sessionId=${encodeURIComponent(sessionId ?? "")}&_=${Date.now()}`
+    console.log("[POLL-PROXY] fetch", url.substring(0, 90))
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${relayToken}` },
     })
