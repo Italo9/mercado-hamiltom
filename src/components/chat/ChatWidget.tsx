@@ -56,12 +56,13 @@ export function ChatWidget() {
   const [loading, setLoading] = useState(false)
   const [unread, setUnread] = useState(0)
   const [pillIndex, setPillIndex] = useState(0)
-  const [mode, setMode] = useState<Mode>("bot")
-
+  const [mode, _setMode] = useState<Mode>("bot")
   const modeRef = useRef<Mode>("bot")
-  useEffect(() => {
-    modeRef.current = mode
-  }, [mode])
+
+  const setModeAndRef = useCallback((m: Mode) => {
+    modeRef.current = m
+    _setMode(m)
+  }, [])
 
   // Identificador estável da conversa (sessão de atendimento humano).
   const [sessionId] = useState(() =>
@@ -171,7 +172,7 @@ export function ChatWidget() {
         }
         if (d.ended) {
           stopPolling()
-          setMode("bot")
+          setModeAndRef("bot")
           pushAssistant(
             d.ended.reason === "timeout"
               ? "O atendimento humano foi encerrado por inatividade. Posso continuar te ajudando 😊"
@@ -179,7 +180,7 @@ export function ChatWidget() {
           )
         } else if (d.active === false) {
           stopPolling()
-          setMode("bot")
+          setModeAndRef("bot")
         }
       } catch {
         // mantém o polling; tenta de novo no próximo ciclo
@@ -249,7 +250,7 @@ export function ChatWidget() {
     if (modeRef.current !== "bot") {
       return
     }
-    setMode("askName")
+    setModeAndRef("askName")
     pushAssistant("Claro! Vou te encaminhar para um atendente. Qual é o seu nome?")
   }, [pushAssistant])
 
@@ -263,17 +264,17 @@ export function ChatWidget() {
         })
         const d = await r.json()
         if (d.ok && d.enabled) {
-          setMode("human")
+          setModeAndRef("human")
           pushAssistant(`Prontinho, ${name}! Um atendente assumiu sua conversa. Pode mandar sua mensagem 😊`)
           startPolling()
         } else {
-          setMode("bot")
+          setModeAndRef("bot")
           pushAssistant(
             `No momento não consegui falar com um atendente, ${name}. Mas eu, o ${assistant.name}, continuo te ajudando agora mesmo! O que você precisa?`,
           )
         }
       } catch {
-        setMode("bot")
+        setModeAndRef("bot")
         pushAssistant("Tive um problema para chamar o atendente, mas pode falar comigo que eu te ajudo!")
       }
     },
@@ -291,7 +292,7 @@ export function ChatWidget() {
         const d = await r.json()
         if (!d.ok && d.active === false) {
           stopPolling()
-          setMode("bot")
+          setModeAndRef("bot")
           pushAssistant("Atendimento humano encerrado. Posso continuar te ajudando 😊")
         }
       } catch {
@@ -303,7 +304,7 @@ export function ChatWidget() {
 
   const endHuman = useCallback(async () => {
     stopPolling()
-    setMode("bot")
+    setModeAndRef("bot")
     pushAssistant("Atendimento humano encerrado. Posso continuar te ajudando 😊")
     try {
       await fetch("/api/human/end", {

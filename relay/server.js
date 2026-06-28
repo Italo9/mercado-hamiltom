@@ -207,8 +207,8 @@ async function connectWhatsApp() {
       const text = extractText(message)
       if (!text.trim()) continue
 
-      // Ignora eco das mensagens enviadas pelo relay (prefixos conhecidos)
-      if (isMe && (text.startsWith("Cliente:") || text.startsWith("*NOVO"))) continue
+      // Eco das mensagens enviadas pelo relay: contem \u200e (LTR marker)
+      if (isMe && /\u200e/.test(text)) continue
 
       console.log("[WHATSAPP] texto do atendente:", text.substring(0, 80))
 
@@ -229,7 +229,9 @@ async function sendToAttendant(text) {
     throw new Error("WhatsApp offline")
   }
   const jid = `${ATTENDANT_NUMBER}@s.whatsapp.net`
-  await sock.sendMessage(jid, { text })
+  // \u200e (LEFT-TO-RIGHT MARK): marcador invisivel que permite filtrar o eco
+  // quando o Baileys devolve a mensagem via messages.upsert (fromMe: true).
+  await sock.sendMessage(jid, { text: `\u200e${text}` })
 }
 
 // --------------- Express app ---------------
