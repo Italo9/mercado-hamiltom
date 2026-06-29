@@ -5,11 +5,10 @@
 // Endpoints (todos exigem header Authorization: Bearer <RELAY_AUTH_TOKEN>):
 //   GET  /qr        QR code atual ou null
 //   GET  /status    status da conexao WhatsApp
-//   GET  /debug     estado das sessoes (diagnostico)
 //   POST /start     inicia sessao de atendimento e notifica o atendente
 //   POST /message   encaminha mensagem do cliente ao atendente
-//   GET  /poll      drena mensagens do atendente para a sessao
-//   POST /end       encerra sessao
+//   GET  /poll      drena mensagens do atendente e mantem a sessao viva
+//   POST /end       encerra sessao e avisa o atendente
 
 const express = require("express")
 
@@ -54,9 +53,8 @@ function getActiveSession() {
 }
 
 // Entrega a mensagem do atendente a TODAS as sessoes ativas. Como o MVP tem um
-// unico atendente, isto garante que a sessao que o widget esta consultando
-// receba a resposta, mesmo que outro /start (por exemplo, um teste pelo console)
-// tenha mudado o activeSessionId. Retorna quantas sessoes receberam.
+// unico atendente, garante que a sessao consultada pelo widget receba a resposta
+// mesmo que o activeSessionId tenha mudado.
 function enqueueToAllActive(text) {
   let count = 0
   for (const s of Array.from(sessions.values())) {
@@ -76,7 +74,7 @@ function endSession(id, reason) {
   if (activeSessionId === id) activeSessionId = null
 }
 
-// Timestamp da ultima consulta de poll por sessao (evita drenar a fila)
+// Cursor de entrega por sessao: o /poll devolve so o que chegou desde o ultimo.
 const lastPolled = new Map()
 
 function drainSession(id) {
@@ -84,19 +82,14 @@ function drainSession(id) {
   if (!s) {
     return { active: false, messages: [], ended: null }
   }
-
   const since = lastPolled.get(id) || 0
   const now = Date.now()
   const messages = s.queue.filter((m) => m.at > since)
   lastPolled.set(id, now)
-
+  // Limpa mensagens ja entregues
   s.queue = s.queue.filter((m) => m.at > since)
-
   const ended = s.ended
-  if (ended) {
-    sessions.delete(id)
-    lastPolled.delete(id)
-  }
+  if (ended) sessions.delete(id)
   return { active: s.active, messages, ended }
 }
 
@@ -104,7 +97,14 @@ function sweepTimeouts() {
   const now = Date.now()
   for (const s of Array.from(sessions.values())) {
     if (s.active && now - s.lastClientActivity >= HUMAN_TIMEOUT_MS) {
+      const name = s.name
       endSession(s.id, "timeout")
+      // Avisa o atendente que a conversa caiu por inatividade (cliente saiu).
+      if (WHATSAPP_ENABLED && connectionState === "open") {
+        sendToAttendant(`O atendimento com ${name} foi encerrado por inatividade (cliente ausente).`).catch(
+          () => {},
+        )
+      }
     }
   }
 }
@@ -167,7 +167,7 @@ async function connectWhatsApp() {
       latestQR = qr
       const qrcode = require("qrcode-terminal")
       qrcode.generate(qr, { small: true })
-      console.log("[WHATSAPP] QR code gerado, escaneie com o WhatsApp do atendente")
+      console.log("[WHATSAPP] QR code gerado, escaneie com o WhatsApp do bot")
     }
     if (connection === "open") {
       connectionState = "open"
@@ -195,7 +195,7 @@ async function connectWhatsApp() {
         } catch (_) {}
       }
 
-      // Sempre reconecta
+      // Sempre reconecta, com backoff exponencial
       sock = null
       const attempt = (connectWhatsApp._attempt = (connectWhatsApp._attempt || 0) + 1)
       const delay = Math.min(5000 * Math.pow(2, attempt - 1), 120000)
@@ -214,17 +214,20 @@ async function connectWhatsApp() {
       const from = (key.remoteJid ?? "").toString()
       const isMe = !!key.fromMe
 
-      // So aceita mensagens da propria conta (fromMe) ou do numero do atendente.
-      // Em multi-device, respostas do celular chegam como fromMe:true via LID JID.
+      // Aceita a resposta do atendente. Funciona nos dois modos:
+      // - dois numeros: a resposta chega do numero do atendente (fromMe:false)
+      // - numero unico (auto-conversa): chega como fromMe:true
       if (!isMe && !jidMatches(from, ATTENDANT_NUMBER)) continue
 
       const text = extractText(message)
       if (!text.trim()) continue
 
-      // Ignora eco das mensagens enviadas pelo relay (prefixos conhecidos)
-      if (isMe && (text.startsWith("Cliente:") || text.startsWith("*NOVO"))) continue
+      // Eco das mensagens que o proprio relay enviou: elas levam um marcador
+      // invisivel \u200e. Sem isto, em auto-conversa o relay reentregaria as
+      // proprias mensagens ao widget.
+      if (isMe && /\u200e/.test(text)) continue
 
-      const delivered = enqueueToAllActive(text.trim())
+      enqueueToAllActive(text.trim())
     }
   })
 }
@@ -234,7 +237,9 @@ async function sendToAttendant(text) {
     throw new Error("WhatsApp offline")
   }
   const jid = `${ATTENDANT_NUMBER}@s.whatsapp.net`
-  await sock.sendMessage(jid, { text })
+  // \u200e (LEFT-TO-RIGHT MARK): marcador invisivel para filtrar o eco quando o
+  // Baileys devolve a mensagem enviada via messages.upsert (fromMe:true).
+  await sock.sendMessage(jid, { text: `\u200e${text}` })
 }
 
 // --------------- Express app ---------------
@@ -249,14 +254,12 @@ app.get("/status", auth, (_req, res) => {
   res.json({ enabled: WHATSAPP_ENABLED, connection: connectionState })
 })
 
-// Diagnostico: lista as sessoes, qual esta ativa e quantas mensagens estao na fila.
 app.post("/start", auth, async (req, res) => {
   const { sessionId, name } = req.body
   if (!sessionId || !name || !name.trim()) {
     return res.status(400).json({ ok: false, error: "dados incompletos" })
   }
   startSession(sessionId, name.trim())
-  console.log("[RELAY] nova sessao:", sessionId, "nome:", name.trim())
 
   if (!WHATSAPP_ENABLED || connectionState !== "open") {
     return res.json({ ok: false, enabled: false })
@@ -306,6 +309,13 @@ app.get("/poll", auth, (req, res) => {
   if (!sessionId) {
     return res.json({ active: false, messages: [], ended: null })
   }
+  // Mantem a sessao viva enquanto o widget estiver aberto fazendo polling.
+  // Sem isto a sessao expirava por inatividade enquanto o cliente apenas lia as
+  // respostas do atendente, e o encerramento manual deixava de notificar.
+  const s = sessions.get(sessionId)
+  if (s && s.active) {
+    s.lastClientActivity = Date.now()
+  }
   sweepTimeouts()
   const result = drainSession(sessionId)
   return res.json(result)
@@ -319,7 +329,7 @@ app.post("/end", auth, async (req, res) => {
   const session = sessions.get(sessionId)
   if (session && session.active && WHATSAPP_ENABLED && connectionState === "open") {
     try {
-      await sendToAttendant(`Cliente ${session.name} encerrou o atendimento.`)
+      await sendToAttendant(`Cliente ${session.name} encerrou o atendimento pelo site.`)
     } catch (_) {}
   }
   endSession(sessionId, "manual")
